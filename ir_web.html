@@ -1,0 +1,341 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>IR Remote (server repeat & groups)</title>
+<style>
+ body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial; padding: 16px; background:#111; color:#eee; }
+ .container { display:flex; flex-direction:column; gap:16px; }
+ .group { background: rgba(255,255,255,0.02); padding:10px; border-radius:10px; }
+ .group h3 { margin:0 0 8px 0; font-size:15px; color:#ddd; }
+ .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap:10px; }
+ button.key {
+  padding:12px;
+  font-size:14px;
+  border-radius:8px;
+  border:0;
+  cursor:pointer;
+  background:#222;
+  color:#fff;
+  box-shadow:0 2px 6px rgba(0,0,0,0.6);
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+ }
+ button.key:active, button.key.pressed { transform: translateY(1px); opacity:0.9; background:#0a84ff; }
+
+ /* direction group layout */
+ .dir-grid {
+   display:grid;
+   grid-template-columns: 64px 64px 64px;
+   grid-template-rows: 64px 64px 64px;
+   gap:8px;
+   justify-content:start;
+   align-items:center;
+ }
+ .dir-cell { width:64px; height:64px; display:flex; align-items:center; justify-content:center; }
+ .dir-empty { background: transparent; }
+ .dir-center .key { width:64px; height:64px; display:flex; align-items:center; justify-content:center; padding:0; }
+
+ /* small label for member keys */
+ .small-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap:8px; margin-top:8px; }
+ header { margin-bottom:6px; display:flex; align-items:center; gap:12px; }
+ .status { font-size:13px; color:#bbb; }
+ footer { margin-top:6px; font-size:12px; color:#999; }
+ @media (max-width:420px) {
+   .dir-grid { grid-template-columns: 56px 56px 56px; grid-template-rows: 56px 56px 56px; }
+   .dir-cell, .dir-center .key { width:56px; height:56px; }
+ }
+</style>
+</head>
+<body>
+<header>
+  <h2>IR Remote (server repeat & groups)</h2>
+  <div class="status" id="status">Ready</div>
+</header>
+
+<div class="container" id="groupsContainer" aria-live="polite"></div>
+
+<footer>
+  <div>按下发送 "down"，放开发送 "up"。长按由服务器重复发送，服务器最大自动持有 __MAX_HOLD__ 秒，间隔 __REPEAT_INTERVAL__ ms。</div>
+</footer>
+
+<script>
+/* 模板占位符（由服务器替换）:
+   __KEYMAP_JSON__   -> keymap JSON (object)
+   __KEY_LAYOUT_JSON__ -> layout JSON (array) or null
+   __REPEAT_INTERVAL__ -> repeat interval (ms)
+   __MAX_HOLD__       -> max hold (s)
+   __GEN_UUID__       -> fallback uuid
+*/
+const KEYMAP = __KEYMAP_JSON__;
+const KEY_LAYOUT = __KEY_LAYOUT_JSON__ || null;
+const REPEAT_INTERVAL = __REPEAT_INTERVAL__; // ms
+const MAX_HOLD = __MAX_HOLD__; // s
+
+// per-page client id
+let CLIENT_ID = localStorage.getItem("ir_client_id");
+if (!CLIENT_ID) {
+  CLIENT_ID = crypto.randomUUID ? crypto.randomUUID() : "__GEN_UUID__";
+  localStorage.setItem("ir_client_id", CLIENT_ID);
+}
+
+function el(tag, props = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const k in props) e[k] = props[k];
+  for (const c of children) e.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+  return e;
+}
+
+async function postAction(action, key) {
+  try {
+    const resp = await fetch('/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, key, client_id: CLIENT_ID })
+    });
+    const txt = await resp.text();
+    if (!resp.ok) {
+      console.error('action failed', action, key, txt);
+      document.getElementById('status').textContent = 'Error: ' + txt;
+    } else {
+      document.getElementById('status').textContent = action + ' ' + key + ' @ ' + new Date().toLocaleTimeString();
+    }
+  } catch (e) {
+    console.error(e);
+    document.getElementById('status').textContent = 'Network error';
+  }
+}
+
+/* ---- 把之前的按钮交互逻辑封装进来 (保持你当前的稳定实现) ----
+   这里直接重用 makeButton(name)，保证事件与之前一致（tap-delay、scroll 检测、suppressClick 等）
+*/
+const TAP_DELAY = 500; // ms
+const MOVE_THRESHOLD = 10; // px
+const pendingDowns = new Map();
+const activePresses = new Map();
+
+function makeButton(name) {
+  const btn = el('button', { className: 'key', type:'button', tabIndex:0, 'aria-label': name }, name);
+
+  btn.addEventListener('contextmenu', (e) => e.preventDefault());
+  btn.addEventListener('selectstart', (e) => e.preventDefault());
+
+  const suppressClickFor = (ms = 350) => { btn._suppressClickUntil = Date.now() + ms; };
+
+  function confirmDown(ev, pointerId) {
+    if (activePresses.has(pointerId)) return;
+    activePresses.set(pointerId, { btnName: name });
+    try { if (btn.setPointerCapture) btn.setPointerCapture(pointerId); } catch(e){}
+    btn.classList.add('pressed');
+    postAction('down', name);
+  }
+
+  btn.addEventListener('pointerdown', (ev) => {
+    ev.preventDefault();
+    const pid = ev.pointerId;
+    if (pendingDowns.has(pid) || activePresses.has(pid)) return;
+    const startX = ev.clientX, startY = ev.clientY;
+    try { if (btn.setPointerCapture) btn.setPointerCapture(pid); } catch(e){}
+    const to = setTimeout(() => {
+      const pd = pendingDowns.get(pid);
+      if (pd && !pd.moved) {
+        confirmDown(ev, pid);
+        pendingDowns.delete(pid);
+      }
+    }, TAP_DELAY);
+    pendingDowns.set(pid, { btnName: name, startX, startY, timeoutId: to, moved: false });
+  });
+
+  btn.addEventListener('pointermove', (ev) => {
+    const pid = ev.pointerId;
+    const pd = pendingDowns.get(pid);
+    if (pd) {
+      const dx = ev.clientX - pd.startX, dy = ev.clientY - pd.startY;
+      if (Math.hypot(dx, dy) > MOVE_THRESHOLD) {
+        clearTimeout(pd.timeoutId);
+        pendingDowns.delete(pid);
+        try { if (btn.releasePointerCapture) btn.releasePointerCapture(pid); } catch(e){}
+      }
+      return;
+    }
+    const ap = activePresses.get(pid);
+    if (ap && ap.btnName === name) {
+      activePresses.delete(pid);
+      try { if (btn.releasePointerCapture) btn.releasePointerCapture(pid); } catch(e){}
+      btn.classList.remove('pressed');
+      postAction('up', name);
+      suppressClickFor();
+    }
+  });
+
+  function handlePointerEnd(ev) {
+    ev.preventDefault();
+    const pid = ev.pointerId;
+    const pd = pendingDowns.get(pid);
+    if (pd && pd.btnName === name) {
+      clearTimeout(pd.timeoutId);
+      pendingDowns.delete(pid);
+      try { if (btn.releasePointerCapture) btn.releasePointerCapture(pid); } catch(e){}
+      postAction('click', name);
+      suppressClickFor();
+      return;
+    }
+    const ap = activePresses.get(pid);
+    if (ap && ap.btnName === name) {
+      activePresses.delete(pid);
+      try { if (btn.releasePointerCapture) btn.releasePointerCapture(pid); } catch(e){}
+      btn.classList.remove('pressed');
+      postAction('up', name);
+      suppressClickFor();
+      return;
+    }
+  }
+
+  btn.addEventListener('pointerup', handlePointerEnd);
+  btn.addEventListener('pointercancel', (ev) => {
+    const pid = ev.pointerId;
+    const pd = pendingDowns.get(pid);
+    if (pd && pd.btnName === name) {
+      clearTimeout(pd.timeoutId);
+      pendingDowns.delete(pid);
+      try { if (btn.releasePointerCapture) btn.releasePointerCapture(pid); } catch(e){}
+      return;
+    }
+    const ap = activePresses.get(pid);
+    if (ap && ap.btnName === name) {
+      activePresses.delete(pid);
+      try { if (btn.releasePointerCapture) btn.releasePointerCapture(pid); } catch(e){}
+      btn.classList.remove('pressed');
+      postAction('up', name);
+      suppressClickFor();
+    }
+  });
+
+  btn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    const until = btn._suppressClickUntil || 0;
+    if (Date.now() < until) { btn._suppressClickUntil = 0; return; }
+    postAction('click', name);
+  });
+
+  btn.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      ev.preventDefault();
+      postAction('click', name);
+    }
+  });
+
+  return btn;
+}
+
+/* ---- 渲染逻辑：如果 KEY_LAYOUT 存在就按组渲染，否则回退到按 KEYMAP 所有键渲染 ---- */
+function renderNormalGroup(container, group) {
+  const title = el('h3', {}, group.group_name || '');
+  const gdiv = el('div', { className: 'group' }, title);
+  const grid = el('div', { className: 'grid' });
+
+  const members = Array.isArray(group.member) ? group.member : [];
+  // 如果 group.action.normal 存在并且是数组，优先使用 action.normal 作为普通成员
+  if (group.action && Array.isArray(group.action.normal)) {
+    // 以 action.normal 为准（覆盖）
+    while (grid.firstChild) grid.removeChild(grid.firstChild);
+    for (const k of group.action.normal) {
+      grid.appendChild(makeButton(k));
+    }
+  } else {
+    for (const k of members) {
+      grid.appendChild(makeButton(k));
+    }
+  }
+
+  gdiv.appendChild(grid);
+  container.appendChild(gdiv);
+}
+
+function renderDirectionGroup(container, group) {
+  const title = el('h3', {}, group.group_name || '');
+  const gdiv = el('div', { className: 'group' }, title);
+
+  // 方向 3x3 网格:  positions: [ [null, up, null], [left, center, right], [null, down, null] ]
+  const dirGrid = el('div', { className: 'dir-grid' });
+
+  // helper to create a dir cell
+  function dirCell(keyName, isCenter) {
+    if (keyName) {
+      const cell = el('div', { className: 'dir-cell' }, isCenter ? (el('div', { className: 'dir-center' }, makeButton(keyName))) : makeButton(keyName));
+      return cell;
+    } else {
+      return el('div', { className: 'dir-cell dir-empty' }, '');
+    }
+  }
+
+  const action = group.action || {};
+  // up
+  dirGrid.appendChild(dirCell(action.up || null, false));
+  // up-right placeholder (we keep grid 3x3; fill with empty)
+  dirGrid.appendChild(dirCell(null, false));
+  dirGrid.appendChild(dirCell(null, false));
+
+  // left, center, right -> but we want left at (1,0), center at (1,1), right at (1,2)
+  // So we restructure: remove last appends and add in desired order
+  dirGrid.innerHTML = ''; // easier to re-create in proper order
+  // row 1
+  dirGrid.appendChild(dirCell(null,false));            // (0,0)
+  dirGrid.appendChild(dirCell(action.up || null,false)); // (0,1) up in top-center
+  dirGrid.appendChild(dirCell(null,false));            // (0,2)
+  // row 2
+  dirGrid.appendChild(dirCell(action.left || null,false)); // (1,0)
+  dirGrid.appendChild(dirCell(action.center || null,true)); // (1,1) center (bigger styling via dir-center)
+  dirGrid.appendChild(dirCell(action.right || null,false)); // (1,2)
+  // row 3
+  dirGrid.appendChild(dirCell(null,false));            // (2,0)
+  dirGrid.appendChild(dirCell(action.down || null,false)); // (2,1)
+  dirGrid.appendChild(dirCell(null,false));            // (2,2)
+
+  gdiv.appendChild(dirGrid);
+
+  // 如果有 normal 成员（或 member 中剩余按键），在方向组下方以小网格显示
+  const normals = Array.isArray(action.normal) ? action.normal :
+                  (Array.isArray(group.member) ? group.member : []);
+  if (normals && normals.length) {
+    const small = el('div', { className: 'small-grid' });
+    for (const k of normals) {
+      small.appendChild(makeButton(k));
+    }
+    gdiv.appendChild(small);
+  }
+
+  container.appendChild(gdiv);
+}
+
+function buildUI() {
+  const container = document.getElementById('groupsContainer');
+  container.innerHTML = '';
+
+  if (Array.isArray(KEY_LAYOUT) && KEY_LAYOUT.length > 0) {
+    // use layout
+    for (const group of KEY_LAYOUT) {
+      if (!group || typeof group !== 'object') continue;
+      const type = (group.type || 'normal').toLowerCase();
+      if (type === 'direction') {
+        renderDirectionGroup(container, group);
+      } else {
+        renderNormalGroup(container, group);
+      }
+    }
+  } else {
+    // fallback: show all keys from KEYMAP as a single group
+    const g = { group_name: 'All keys', member: Object.keys(KEYMAP || {}) };
+    renderNormalGroup(container, g);
+  }
+}
+
+buildUI();
+</script>
+</body>
+</html>

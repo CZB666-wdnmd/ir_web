@@ -1,0 +1,169 @@
+{
+  "STANDBY/ON": [
+    "0xA51C"
+  ],
+  "ZONE A/B": [
+    "0xA55A",
+    "0xAF2B"
+  ],
+  "SLEEP": [
+    "0xA548"
+  ],
+  "PERSONAL PRESET 1": [ 
+    "0xA55A",
+    "0xAF28"
+  ],
+  "PERSONAL PRESET 2": [
+    "0xA55A",
+    "0xAF29"
+  ],
+  "PERSONAL PRESET 3": [
+    "0xA55A",
+    "0xAF2A"
+  ],
+  "Input selector BD/DVD": [
+    "0xA55C",
+    "0xA5C0"
+  ],
+  "Input selector GAME": [
+    "0xA55C",
+    "0xA5C5"
+  ],
+  "Input selector CBL/SAT": [
+    "0xA510"
+  ],
+  "Input selector STRMBOX": [
+    "0xA557",
+    "0xAF36"
+  ],
+  "Input selector AUX": [
+    "0xA59B",
+    "0xA504"
+  ],
+  "Input selector CD": [
+    "0xA54C"
+  ],
+  "Input selector TV": [
+    "0xA50C"
+  ],
+  "Input selector TUNER": [
+    "0xA547"
+  ],
+  "Input selector BLUETOOTH": [
+    "0xA55C",
+    "0xA5C4"
+  ],
+  "Play buttons PAUSE": [
+    "0xA597",
+    "0xA5C1"
+  ],
+  "Play buttons PLAY": [
+    "0xA597",
+    "0xA5C0"
+  ],
+  "Play buttons FAST BACKWAWD": [
+    "0xA557",
+    "0xAF2D"
+  ],
+  "Play buttons FAST FORWARD": [
+    "0xA557",
+    "0xAF2E"
+  ],
+  "AV ADJUST": [
+    "0xA55A",
+    "0xA5CA"
+  ],
+  "STATUS": [
+    "0xA59B",
+    "0xA5DD"
+  ],
+  "Cursor UP": [
+    "0xA580"
+  ],
+  "Cursor DOWN": [
+    "0xA581"
+  ],
+  "Cursor LEFT": [
+    "0xA583"
+  ],
+  "Cursor RIGHT": [
+    "0xA582"
+  ],
+  "ENTER": [
+    "0xA584"
+  ],
+  "HOME": [
+    "0xA59B",
+    "0xA5D6"
+  ],
+  "RETURN/EXIT": [
+    "0xA55D",
+    "0xA509"
+  ],
+  "MUTE": [
+    "0xA512"
+  ],
+  "TONE": [
+    "0xA55A",
+    "0xAF27"
+  ],
+  "DIALOG": [
+    "0xA55A",
+    "0xAF23"
+  ],
+  "SW": [
+    "0xA55A",
+    "0xAF24"
+  ],
+  "VOLUME UP": [
+    "0xA50A"
+  ],
+  "VOLUME DOWN": [
+    "0xA50B"
+  ],
+  "TONE/DIALOG/SW UP": [
+    "0xA55A",
+    "0xAF25"
+  ],
+  "TONE/DIALOG/SW DOWN": [
+    "0xA55A",
+    "0xAF26"
+  ],
+  "LISTENING MODE AUTO/DIRECT": [
+    "0xA59A",
+    "0xA5C3"
+  ],
+  "LISTENING MODE SURR": [
+    "0xA55E",
+    "0xA508"
+  ],
+  "LISTENING MODE STEREO": [
+    "0xA59F",
+    "0xA5C0"
+  ],
+  "DIMMER": [
+    "0xA556",
+    "0xA506"
+  ],
+  "CLEAR": [
+    "0xA597",
+    "0xA5D7"
+  ],
+  "+Fav": [
+    "0xA557",
+    "0xAF38"
+  ],
+  "AUDIO SEL": [
+    "0xA556",
+    "0xA503"
+  ],
+  "SOUND RETRIEVER": [
+    "0xA55A",
+    "0xA5CD"
+  ],
+  "MODE": [
+    "0xA557",
+    "0xAF37"
+  ]
+}
+

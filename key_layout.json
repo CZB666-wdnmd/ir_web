@@ -1,0 +1,69 @@
+[
+  {
+    "group_name": "电源",
+    "type": "normal",
+    "member": ["STANDBY/ON", "ZONE A/B", "SLEEP"]
+  },
+  {
+    "group_name": "个人预设",
+    "type": "normal",
+    "member": ["PERSONAL PRESET 1", "PERSONAL PRESET 2", "PERSONAL PRESET 3"]
+  },
+  {
+    "group_name": "输入源",
+    "type": "normal",
+    "member": ["Input selector BD/DVD", "Input selector GAME", "Input selector CBL/SAT", "Input selector STRMBOX", "Input selector AUX", "Input selector CD", "Input selector TV", "Input selector TUNER", "Input selector BLUETOOTH"]
+  },
+  {
+    "group_name": "播放控制",
+    "type": "normal",
+    "member": ["Play buttons PAUSE", "Play buttons PLAY", "Play buttons FAST BACKWAWD", "Play buttons FAST FORWARD"]
+  },
+  {
+    "group_name": "导航键",
+    "type": "direction",
+    "member": ["AV ADJUST","STATUS","HOME","RETURN/EXIT"],
+
+    "action": {
+      "up": "Cursor UP",
+      "down": "Cursor DOWN",
+      "left": "Cursor LEFT",
+      "right": "Cursor RIGHT",
+      "center": "ENTER",
+      "normal": ["AV ADJUST","STATUS","HOME","RETURN/EXIT"]
+    }
+  },
+  {
+    "group_name": "增益",
+    "type": "direction",
+    "member": ["TONE","DIALOG","SW"],
+
+    "action": {
+      "up": "TONE/DIALOG/SW UP",
+      "down": "TONE/DIALOG/SW DOWN",
+      "normal": ["TONE","DIALOG","SW"]
+    }
+  },
+  {
+    "group_name": "音量",
+    "type": "direction",
+    "member": ["MUTE"],
+
+    "action": {
+      "up": "VOLUME UP",
+      "down": "VOLUME DOWN",
+      "normal": ["MUTE"]
+    }
+  },
+  {
+    "group_name": "音效模式",
+    "type": "normal",
+    "member": ["LISTENING MODE AUTO/DIRECT", "LISTENING MODE SURR", "LISTENING MODE STEREO"]
+  },
+  {
+    "group_name": "其他",
+    "type": "normal",
+    "member": ["DIMMER", "CLEAR", "+Fav", "AUDIO SEL", "SOUND RETRIEVER", "MODE"]
+  }
+]
+
